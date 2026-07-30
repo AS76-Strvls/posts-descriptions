@@ -206,7 +206,14 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(msg, isErr){ const t=$('#toast'); t.textContent=msg; t.className='toast show'+(isErr?' err':''); setTimeout(()=>t.className='toast',2600); }
 function iso(d){ return d.toISOString().slice(0,10); }
-function d10(s){ return String(s||'').slice(0,10); }
+/* Επιστρέφει YYYY-MM-DD είτε από «2026-02-07…» είτε από Date-string («Sat Feb 07 2026…» που φτιάχνει το Sheets). */
+function d10(s){
+  s=String(s||'');
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  const d=new Date(s);
+  if(!isNaN(d.getTime())) return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  return s.slice(0,10);
+}
 function stripHtml(h){ const d=document.createElement('div'); d.innerHTML=h||''; return (d.textContent||d.innerText||'').replace(/\s+/g,' ').trim(); }
 function fmtDate(s){
   const m = d10(s).match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -342,7 +349,7 @@ function renderRaw(){
   let rows=DATA.raw.slice();
   if(curSection!=='ΟΛΑ') rows=rows.filter(r=>r['Τμήμα']===curSection);
   if(fy && fy!=='ΟΛΕΣ') rows=rows.filter(r=>scoutYear(r['Ημερομηνία'])===fy);
-  rows.sort((a,b)=> (b['Ημερομηνία']||'').localeCompare(a['Ημερομηνία']||'') || (b['Καταχώρηση']||'').localeCompare(a['Καταχώρηση']||''));
+  rows.sort((a,b)=> d10(b['Ημερομηνία']).localeCompare(d10(a['Ημερομηνία'])) || (b['Καταχώρηση']||'').localeCompare(a['Καταχώρηση']||''));
   if(!rows.length){ list.innerHTML='<div class="card"><div class="empty">Καμία σημείωση για αυτό το φίλτρο.</div></div>'; return; }
   const groups={};
   rows.forEach(r=>{ const d=d10(r['Ημερομηνία'])||'—'; (groups[d]=groups[d]||[]).push(r); });
