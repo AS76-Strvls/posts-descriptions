@@ -19,7 +19,7 @@
  * Εγκατάσταση: δες posts-SETUP.md
  */
 
-const SHEET_ID = 'PASTE_SHEET_ID_HERE'; // ← το ID του Google Sheet (μεταξύ /d/ και /edit)
+const SHEET_ID = '18i4X-3NGVDkJscf4jzDOagyzkGd9y3dCa_B5W0Os1ck'; // Google Sheet «ΔΗΜΟΣΙΕΥΣΕΙΣ_STATE» (as@76.life)
 
 const RAW_SHEET   = 'Πρώτη Ύλη';
 const RAW_HEADERS = ['ID', 'Καταχώρηση', 'Ημερομηνία', 'Έως', 'Τμήμα', 'Τίτλος', 'Κείμενο', 'Συντάκτης'];
