@@ -443,9 +443,9 @@ function renderWeb(items){
   if(!items.length){ feed.innerHTML='<div class="card"><div class="empty">Καμία δράση.</div></div>'; return; }
   items.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   feed.innerHTML=items.map(m=>{
-    const title=stripHtml(m.title);
+    const title=stripHtml((m.title && m.title.rendered) || m.title || '');
     const d=parseTextDate(title, m.date);
-    const excerpt=stripHtml(m.excerpt);
+    const excerpt=stripHtml((m.excerpt && m.excerpt.rendered) || m.excerpt || '');
     return `<div class="entry web">
       <div class="top">
         <span class="date">${esc(fmtDate(d)||'—')}</span>
