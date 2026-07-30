@@ -268,20 +268,13 @@ function parseTextDate(txt, tsISO){
   return fb;
 }
 
-/* ============ API (JSONP) ============ */
-function api(params){
-  return new Promise((resolve,reject)=>{
-    if(!WEB_APP_URL || WEB_APP_URL.indexOf('PASTE_')===0){ reject(new Error('no-url')); return; }
-    const cb='cb_'+Math.random().toString(36).slice(2);
-    const s=document.createElement('script');
-    const to=setTimeout(()=>{cleanup();reject(new Error('timeout'));},20000);
-    function cleanup(){clearTimeout(to);delete window[cb];if(s.parentNode)s.remove();}
-    window[cb]=data=>{cleanup();resolve(data);};
-    const q=Object.keys(params).map(k=>encodeURIComponent(k)+'='+encodeURIComponent(params[k]==null?'':params[k])).join('&');
-    s.src=WEB_APP_URL+'?callback='+cb+'&'+q;
-    s.onerror=()=>{cleanup();reject(new Error('network'));};
-    document.body.appendChild(s);
-  });
+/* ============ API (fetch — δουλεύει με πολλά Google logins, χωρίς incognito) ============ */
+async function api(params){
+  if(!WEB_APP_URL || WEB_APP_URL.indexOf('PASTE_')===0) throw new Error('no-url');
+  const q=Object.keys(params).map(k=>encodeURIComponent(k)+'='+encodeURIComponent(params[k]==null?'':params[k])).join('&');
+  const resp=await fetch(WEB_APP_URL+'?'+q, { method:'GET' });
+  if(!resp.ok) throw new Error('http '+resp.status);
+  return await resp.json();
 }
 function setStatus(state,txt){ $('#dot').className='dot '+state; $('#statusTxt').textContent=txt; }
 
