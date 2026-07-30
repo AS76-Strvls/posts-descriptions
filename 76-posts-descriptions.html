@@ -17,7 +17,7 @@
   a{color:var(--blue)}
   header{background:linear-gradient(135deg,var(--blue),var(--blue-d));color:#fff;padding:18px 20px;
          box-shadow:0 2px 10px rgba(0,0,0,.12)}
-  header .wrap{max-width:1000px;margin:0 auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  header .wrap{max-width:1080px;margin:0 auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
   .badge76{width:48px;height:48px;border-radius:50%;background:#fff;flex:0 0 auto;
            display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.22);overflow:hidden}
   .badge76 img{width:36px;height:36px;object-fit:contain;display:block}
@@ -27,7 +27,8 @@
           background:rgba(255,255,255,.14);padding:6px 11px;border-radius:20px}
   .dot{width:9px;height:9px;border-radius:50%;background:#9aa}
   .dot.on{background:#7CFC9B} .dot.off{background:#ff8c8c}
-  main{max-width:1000px;margin:0 auto;padding:18px 16px 60px}
+  main{max-width:1080px;margin:0 auto;padding:18px 22px 60px}
+  @media(min-width:900px){ main{padding:22px 28px 70px} }
 
   .tabs{display:flex;gap:8px;margin:6px 0 16px;flex-wrap:wrap}
   .tab{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 16px;
@@ -92,6 +93,12 @@
   .datehead{margin:20px 0 8px;font-size:14px;font-weight:800;color:var(--blue);border-bottom:2px solid var(--yellow);padding-bottom:5px}
   .empty{color:var(--muted);font-style:italic;padding:8px 2px}
   .hint{font-size:12.5px;color:var(--muted);margin:4px 0 0}
+  .webthumb{width:100%;max-height:320px;object-fit:cover;border-radius:10px;margin:6px 0 2px;display:block}
+  .entry .webbody{margin-top:6px}
+  .entry .webbody p{margin:.55em 0}
+  .entry .webbody img{max-width:100%;height:auto;border-radius:8px;margin:6px 0}
+  .entry .webbody a{color:var(--blue)}
+  .entry .webbody ul,.entry .webbody ol{margin:.4em 0 .4em 1.2em}
   .note{background:#eef4fc;border:1px solid #cfe0f5;border-radius:10px;padding:10px 12px;margin:0 0 14px;font-size:13px;color:var(--blue-d)}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;
          padding:11px 20px;border-radius:10px;font-size:14px;opacity:0;transition:.25s;pointer-events:none;z-index:50}
@@ -127,7 +134,7 @@
       <h2 id="rawFormTitle">➕ Νέα σημείωση της εβδομάδας</h2>
       <input type="hidden" id="rawEditId" value="">
       <div class="row">
-        <div>
+        <div id="rawSectionWrap">
           <label>Τμήμα</label>
           <select id="rawSection"></select>
         </div>
@@ -316,14 +323,25 @@ $('#webReload').onclick=loadWeb;
 
 /* ============ ΠΡΩΤΗ ΥΛΗ ============ */
 function buildChips(){
-  const box=$('#secChips'); const all=SECTIONS.concat([{key:'ΟΛΑ',label:'Όλα',emoji:'⚜️'}]);
+  const box=$('#secChips'); const all=SECTIONS.concat([{key:'ΟΛΑ',label:'Όλοι μαζί',emoji:'⚜️'}]);
   box.innerHTML=all.map(s=>`<button class="chip ${s.key===curSection?'active':''}" data-k="${s.key}">${s.emoji} ${esc(s.label)}</button>`).join('');
-  box.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{ curSection=c.dataset.k; buildChips(); renderRaw(); });
+  box.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{ curSection=c.dataset.k; if(!$('#rawEditId').value) resetRaw(); buildChips(); renderRaw(); });
   const sel=$('#rawSection');
   sel.innerHTML=SECTIONS.map(s=>`<option value="${s.key}">${s.emoji} ${esc(s.label)}</option>`).join('');
   if(curSection!=='ΟΛΑ') sel.value=curSection;
+  updateFormSection();
 }
 function secMeta(k){ return SECTIONS.find(s=>s.key===k)||{emoji:'•',label:k}; }
+/* Το ενεργό chip = το τμήμα της φόρμας. Το dropdown «Τμήμα» φαίνεται μόνο στο «Όλοι μαζί» ή σε επεξεργασία. */
+function updateFormSection(){
+  const wrap=$('#rawSectionWrap'); const editing=$('#rawEditId').value;
+  if(curSection==='ΟΛΑ' || editing){ if(wrap) wrap.style.display=''; }
+  else { $('#rawSection').value=curSection; if(wrap) wrap.style.display='none'; }
+  if(!editing){
+    const m = curSection==='ΟΛΑ' ? null : secMeta(curSection);
+    $('#rawFormTitle').textContent = m ? ('➕ Νέα σημείωση — '+m.emoji+' '+m.label) : '➕ Νέα σημείωση (διάλεξε τμήμα)';
+  }
+}
 
 function renderRaw(){
   const list=$('#rawList');
@@ -372,11 +390,12 @@ function editRaw(id){
   $('#rawAuthor').value=r['Συντάκτης']||'';
   $('#rawFormTitle').textContent='✎ Επεξεργασία σημείωσης';
   $('#rawCancel').classList.remove('hidden');
+  updateFormSection();
   window.scrollTo({top:0,behavior:'smooth'});
 }
 function resetRaw(){
   $('#rawEditId').value=''; $('#rawTitle').value=''; $('#rawText').value=''; $('#rawAuthor').value=''; $('#rawDateEnd').value='';
-  $('#rawFormTitle').textContent='➕ Νέα σημείωση της εβδομάδας'; $('#rawCancel').classList.add('hidden');
+  $('#rawCancel').classList.add('hidden'); updateFormSection();
 }
 $('#rawCancel').onclick=resetRaw;
 document.querySelectorAll('#view-raw .qbtn').forEach(b=>b.onclick=()=>{ $('#rawDate').value=iso(quickDate(b.dataset.q)); });
@@ -424,7 +443,7 @@ async function loadWeb(){
   const feed=$('#webFeed'), st=$('#webState');
   st.textContent='φόρτωση…';
   const [aft,bef]=yearBounds($('#webYear').value);
-  let url=SITE_URL+'/wp-json/wp/v2/posts?categories='+DRASEIS_CAT+'&per_page=50&_fields=id,date,link,title,excerpt';
+  let url=SITE_URL+'/wp-json/wp/v2/posts?categories='+DRASEIS_CAT+'&per_page=30&_embed=1';
   if(aft&&bef) url+='&after='+aft+'&before='+bef;
   try{
     const resp=await fetch(url,{headers:{'Accept':'application/json'}});
@@ -438,23 +457,43 @@ async function loadWeb(){
   }
 }
 $('#webYear') && ($('#webYear').onchange=loadWeb);
+/* Καθαρίζει HTML από επικίνδυνα στοιχεία (η ιστοσελίδα είναι δική μας, κρατάμε κείμενο/εικόνες/παραγράφους). */
+function sanitizeHtml(h){
+  return String(h||'')
+    .replace(/<script[\s\S]*?<\/script>/gi,'')
+    .replace(/<style[\s\S]*?<\/style>/gi,'')
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi,'')
+    .replace(/\son\w+\s*=\s*"[^"]*"/gi,'')
+    .replace(/\son\w+\s*=\s*'[^']*'/gi,'');
+}
+function featuredImg(m){
+  try{
+    const fm=m._embedded && m._embedded['wp:featuredmedia'] && m._embedded['wp:featuredmedia'][0];
+    if(!fm) return '';
+    let url=fm.source_url;
+    const s=fm.media_details && fm.media_details.sizes;
+    if(s){ const pick=s.medium_large||s.large||s.medium||s.full; if(pick&&pick.source_url) url=pick.source_url; }
+    return url ? `<img class="webthumb" src="${esc(url)}" alt="" loading="lazy">` : '';
+  }catch(e){ return ''; }
+}
 function renderWeb(items){
   const feed=$('#webFeed');
   if(!items.length){ feed.innerHTML='<div class="card"><div class="empty">Καμία δράση.</div></div>'; return; }
   items.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   feed.innerHTML=items.map(m=>{
-    const title=stripHtml((m.title && m.title.rendered) || m.title || '');
+    const title=stripHtml((m.title && m.title.rendered) || '');
     const d=parseTextDate(title, m.date);
-    const excerpt=stripHtml((m.excerpt && m.excerpt.rendered) || m.excerpt || '');
+    const bodyHtml=sanitizeHtml((m.content && m.content.rendered) || (m.excerpt && m.excerpt.rendered) || '');
     return `<div class="entry web">
       <div class="top">
         <span class="date">${esc(fmtDate(d)||'—')}</span>
         <span class="tag">ιστοσελίδα</span>
       </div>
       <div class="title">${esc(title)}</div>
-      <div class="body">${esc(excerpt)}</div>
+      ${featuredImg(m)}
+      <div class="webbody">${bodyHtml}</div>
       <div class="acts">
-        ${m.link?`<a href="${esc(m.link)}" target="_blank" rel="noopener">άνοιγμα ↗</a>`:''}
+        ${m.link?`<a href="${esc(m.link)}" target="_blank" rel="noopener">άνοιγμα στην ιστοσελίδα ↗</a>`:''}
       </div></div>`;
   }).join('');
 }
