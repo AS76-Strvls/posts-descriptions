@@ -3,8 +3,8 @@
  * Google Apps Script Web App. Πηγή αλήθειας: το συνδεδεμένο Google Sheet (φύλλο «Πρώτη Ύλη»).
  *
  *  • «Πρώτη Ύλη» (Sheet) — η πρώτη ύλη κάθε τμήματος ανά Σάββατο, για να φτιάχνεται το description.
- *  • «Τελευταία δράσεις» — διαβάζονται ΖΩΝΤΑΝΑ & ΔΗΜΟΣΙΑ από την ιστοσελίδα 76.life
- *    (WordPress REST API, κατηγορία «ΔΡΑΣΕΙΣ») — ΧΩΡΙΣ σύνδεση/token.
+ *  • «Τελευταία δράσεις» — διαβάζονται ΖΩΝΤΑΝΑ & ΔΗΜΟΣΙΑ ΑΠΕΥΘΕΙΑΣ από τη σελίδα HTML
+ *    (client-side fetch στο 76.life WordPress REST, κατηγορία «ΔΡΑΣΕΙΣ») — δεν περνούν από εδώ.
  *
  * ΜΟΝΤΕΛΟ πρώτης ύλης: append (κάθε καταχώρηση = μία γραμμή με μοναδικό ID) → ταυτόχρονες
  * εγγραφές τμημάτων δεν σβήνουν η μία την άλλη.
@@ -14,7 +14,6 @@
  *   ?action=add&<πεδία>          -> { ok, id }
  *   ?action=update&ID=..&<πεδία> -> { ok }
  *   ?action=delete&ID=..         -> { ok }
- *   ?action=web                  -> { ok, items:[{id,date,link,title,excerpt}] }  (από 76.life)
  *   &callback=fn  -> JSONP wrap
  *
  * Εγκατάσταση: δες posts-SETUP.md
@@ -24,11 +23,6 @@ const SHEET_ID = 'PASTE_SHEET_ID_HERE'; // ← το ID του Google Sheet (με
 
 const RAW_SHEET   = 'Πρώτη Ύλη';
 const RAW_HEADERS = ['ID', 'Καταχώρηση', 'Ημερομηνία', 'Έως', 'Τμήμα', 'Τίτλος', 'Κείμενο', 'Συντάκτης'];
-
-// ---- Ιστοσελίδα (τελευταία δράσεις — δημόσιο WordPress REST, ΧΩΡΙΣ token) ----
-const SITE_URL     = 'https://76.life';
-const WEB_CATEGORY = '29';   // κατηγορία «ΔΡΑΣΕΙΣ» στο 76.life (κενό '' = όλες οι δημοσιεύσεις)
-const WEB_LIMIT    = 12;
 
 function ss_() {
   return SpreadsheetApp.getActive() || SpreadsheetApp.openById(SHEET_ID);
@@ -98,26 +92,6 @@ function deleteRow_(id) {
   return false;
 }
 
-/** Δημόσια ανάγνωση δράσεων από το 76.life (WordPress REST). Χωρίς token. */
-function fetchWebPosts_() {
-  let url = SITE_URL + '/wp-json/wp/v2/posts?per_page=' + WEB_LIMIT +
-            '&_fields=id,date,link,title,excerpt';
-  if (WEB_CATEGORY) url += '&categories=' + encodeURIComponent(WEB_CATEGORY);
-  const resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
-  if (resp.getResponseCode() !== 200) return { ok: false, error: 'HTTP ' + resp.getResponseCode() };
-  const data = JSON.parse(resp.getContentText() || '[]');
-  const items = (data || []).map(function (p) {
-    return {
-      id: p.id,
-      date: p.date || '',
-      link: p.link || '',
-      title: (p.title && p.title.rendered) || '',
-      excerpt: (p.excerpt && p.excerpt.rendered) || ''
-    };
-  });
-  return { ok: true, items: items };
-}
-
 function out_(obj, cb) {
   const t = JSON.stringify(obj);
   if (cb) {
@@ -134,9 +108,6 @@ function handle_(e) {
   try {
     if (action === 'list') {
       return out_({ ok: true, raw: read_(), ts: new Date().toISOString() }, cb);
-    }
-    if (action === 'web') {
-      return out_(fetchWebPosts_(), cb);
     }
     if (action === 'add') {
       const obj = {};

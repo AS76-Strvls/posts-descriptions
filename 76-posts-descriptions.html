@@ -163,10 +163,11 @@
 
   <!-- ================= VIEW: ΤΕΛΕΥΤΑΙΕΣ ΔΡΑΣΕΙΣ (από την ιστοσελίδα) ================= -->
   <section id="view-posts" class="hidden">
-    <div class="note">📣 Οι τελευταίες δράσεις διαβάζονται <b>ζωντανά &amp; δημόσια</b> από την ιστοσελίδα <b>76.life</b> (κατηγορία «ΔΡΑΣΕΙΣ») — χωρίς σύνδεση. Ό,τι δημοσιεύεται εκεί, εμφανίζεται εδώ.</div>
+    <div class="note">📣 Οι δράσεις διαβάζονται <b>ζωντανά &amp; δημόσια</b> κατευθείαν από την ιστοσελίδα <b>76.life</b> (κατηγορία «ΔΡΑΣΕΙΣ»). Ό,τι δημοσιεύεται εκεί, εμφανίζεται εδώ.</div>
     <div class="filterbar">
-      <span class="fl" id="webState">φόρτωση…</span>
-      <button class="btn sec sm" id="webReload" style="margin-left:auto">↻ Ανανέωση</button>
+      <span class="fl">📅 Χρονιά</span><select id="webYear"></select>
+      <button class="btn sec sm" id="webReload">↻ Ανανέωση</button>
+      <span class="fl" id="webState" style="margin-left:auto;font-weight:400"></span>
     </div>
     <div id="webFeed"></div>
   </section>
@@ -179,11 +180,13 @@
 const WEB_APP_URL = "PASTE_WEB_APP_URL_HERE"; // ← το /exec URL από το Apps Script deploy
 
 const SECTIONS = [
-  { key:'Αγέλη',      label:'Αγέλη Λυκοπούλων',              emoji:'🟡' },
-  { key:'Ομάδα',      label:'Ομάδα Προσκόπων «Κεραυνός»',    emoji:'🟢' },
-  { key:'Κοινότητα',  label:'Κοινότητα Ανιχνευτών «Δαίδαλος»', emoji:'🔵' },
-  { key:'Εξτρα',      label:'Εξτρα (σχολές, εμφανίσεις, απονομές)', emoji:'💜' },
+  { key:'Αγέλη',      label:'Αγέλη',      emoji:'🟡' },
+  { key:'Ομάδα',      label:'Ομάδα',      emoji:'🟢' },
+  { key:'Κοινότητα',  label:'Κοινότητα',  emoji:'🔵' },
+  { key:'Εξτρα',      label:'Εξτρα',      emoji:'💜' },
 ];
+const SITE_URL = 'https://76.life';   // δημόσιο WordPress REST (δράσεις) — direct, χωρίς backend
+const DRASEIS_CAT = 29;               // κατηγορία «ΔΡΑΣΕΙΣ»
 const GR_MONTHS = ['Ιανουαρίου','Φεβρουαρίου','Μαρτίου','Απριλίου','Μαΐου','Ιουνίου','Ιουλίου','Αυγούστου','Σεπτεμβρίου','Οκτωβρίου','Νοεμβρίου','Δεκεμβρίου'];
 const GR_MON_SH = ['Ιαν','Φεβ','Μαρ','Απρ','Μαΐ','Ιουν','Ιουλ','Αυγ','Σεπ','Οκτ','Νοε','Δεκ'];
 const GR_DAYS = ['Κυριακή','Δευτέρα','Τρίτη','Τετάρτη','Πέμπτη','Παρασκευή','Σάββατο'];
@@ -228,9 +231,26 @@ const MON_GEN = {'ιανουαριου':1,'φεβρουαριου':2,'μαρτι
 function normGr(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
 function parseTextDate(txt, tsISO){
   const fb = d10(tsISO);
-  if(!txt) return fb;
-  const n = normGr(txt);
-  const m = n.match(/(\d{1,2})\s*(?:[–\-]\s*\d{1,2}\s*)?([α-ω]+)(?:\s+(\d{4}))?/);
+  const t = String(txt||'').trim();
+  if(!t) return fb;
+  // 1) Αριθμητικό «DD/MM» ή «DD/MM/YYYY» (ή με τελεία/παύλα) στην αρχή του τίτλου — η μορφή του 76.life
+  let m = t.match(/^(\d{1,2})[\/.\-](\d{1,2})(?:[\/.\-](\d{2,4}))?/);
+  if(m){
+    const day=+m[1], mon=+m[2];
+    if(day>=1 && day<=31 && mon>=1 && mon<=12){
+      let yr;
+      if(m[3]){ yr=+m[3]; if(yr<100) yr+=2000; }
+      else{
+        yr = fb ? +fb.slice(0,4) : new Date().getFullYear();
+        const fbMon = fb ? +fb.slice(5,7) : mon;
+        if(mon===12 && fbMon===1) yr -= 1; // δράση Δεκ, δημοσίευση Ιαν
+      }
+      return yr+'-'+String(mon).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+    }
+  }
+  // 2) Ελληνικός μήνας με λέξη «07 Φεβρουαρίου 2026»
+  const n = normGr(t);
+  m = n.match(/(\d{1,2})\s*(?:[–\-]\s*\d{1,2}\s*)?([α-ω]+)(?:\s+(\d{4}))?/);
   if(m && MON_GEN[m[2]]){
     const day=+m[1], mon=MON_GEN[m[2]];
     const fbYr = fb ? +fb.slice(0,4) : new Date().getFullYear();
@@ -296,7 +316,7 @@ $('#webReload').onclick=loadWeb;
 
 /* ============ ΠΡΩΤΗ ΥΛΗ ============ */
 function buildChips(){
-  const box=$('#secChips'); const all=[{key:'ΟΛΑ',label:'Όλα τα τμήματα',emoji:'⚜️'}].concat(SECTIONS);
+  const box=$('#secChips'); const all=SECTIONS.concat([{key:'ΟΛΑ',label:'Όλα',emoji:'⚜️'}]);
   box.innerHTML=all.map(s=>`<button class="chip ${s.key===curSection?'active':''}" data-k="${s.key}">${s.emoji} ${esc(s.label)}</button>`).join('');
   box.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{ curSection=c.dataset.k; buildChips(); renderRaw(); });
   const sel=$('#rawSection');
@@ -386,21 +406,38 @@ async function delEntry(id){
   }catch(err){ toast('Δεν διαγράφηκε ('+err.message+')',true); }
 }
 
-/* ============ ΤΕΛΕΥΤΑΙΕΣ ΔΡΑΣΕΙΣ (από 76.life) ============ */
-let WEB_LOADED=false;
+/* ============ ΤΕΛΕΥΤΑΙΕΣ ΔΡΑΣΕΙΣ (direct από 76.life) ============ */
+/* Γεμίζει τον επιλογέα χρονιάς: από 2024-25 έως την τρέχουσα (νεότερη πρώτη). */
+function fillWebYears(){
+  const cur=curScoutYear(); const curStart=+cur.slice(0,4);
+  const el=$('#webYear'); const opts=[];
+  for(let y=curStart; y>=2024; y--){ opts.push(y+'-'+String((y+1)%100).padStart(2,'0')); }
+  el.innerHTML=opts.map(y=>`<option value="${y}">${y}</option>`).join('');
+  el.value=cur;
+}
+/* Σκαυτική χρονιά -> [after, before] (ISO) για το WP REST. */
+function yearBounds(sy){
+  const m=String(sy).match(/^(\d{4})-(\d{2})$/); if(!m) return ['',''];
+  const s=+m[1]; return [s+'-08-01T00:00:00', (s+1)+'-08-01T00:00:00'];
+}
 async function loadWeb(){
   const feed=$('#webFeed'), st=$('#webState');
   st.textContent='φόρτωση…';
+  const [aft,bef]=yearBounds($('#webYear').value);
+  let url=SITE_URL+'/wp-json/wp/v2/posts?categories='+DRASEIS_CAT+'&per_page=50&_fields=id,date,link,title,excerpt';
+  if(aft&&bef) url+='&after='+aft+'&before='+bef;
   try{
-    const r=await api({action:'web'});
-    if(!r||!r.ok){ feed.innerHTML=''; st.textContent='(σφάλμα: '+((r&&r.error)||'—')+')'; return; }
-    WEB_LOADED=true; st.textContent='από 76.life · ενημερώθηκε '+new Date().toLocaleTimeString('el-GR');
-    renderWeb(r.items||[]);
+    const resp=await fetch(url,{headers:{'Accept':'application/json'}});
+    if(!resp.ok){ feed.innerHTML=''; st.textContent='(σφάλμα HTTP '+resp.status+')'; return; }
+    const items=await resp.json();
+    st.textContent='από 76.life · '+new Date().toLocaleTimeString('el-GR');
+    renderWeb(items||[]);
   }catch(err){
-    feed.innerHTML='';
-    st.textContent = err.message==='no-url' ? '(χωρίς σύνδεση — δες SETUP)' : '(εκτός σύνδεσης)';
+    feed.innerHTML='<div class="card"><div class="empty">Δεν φόρτωσαν οι δράσεις (έλεγξε σύνδεση/76.life).</div></div>';
+    st.textContent='(εκτός σύνδεσης)';
   }
 }
+$('#webYear') && ($('#webYear').onchange=loadWeb);
 function renderWeb(items){
   const feed=$('#webFeed');
   if(!items.length){ feed.innerHTML='<div class="card"><div class="empty">Καμία δράση.</div></div>'; return; }
@@ -424,7 +461,8 @@ function renderWeb(items){
 
 /* ============ INIT ============ */
 buildChips();
-$('#rawDate').value=iso(satOfThisWeek());
+$('#rawDate').value=iso(new Date());
+fillWebYears();
 loadAll();
 </script>
 </body>
